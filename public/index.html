@@ -27,12 +27,24 @@
   <div class="user-count">
     現在の接続数: <span id="userCount">0</span>人
   </div>
+  
+  <!-- メッセージ送信用フォームを追加 -->
+  <div class="message-form" style="margin: 20px;">
+    <h2>メッセージ送信</h2>
+    <form id="messageForm">
+      <input type="text" id="messageInput" placeholder="メッセージを入力" style="padding: 5px; margin-right: 10px;">
+      <button type="submit" style="padding: 5px 15px;">送信</button>
+    </form>
+  </div>
+
   <div id="debug-log"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     const userCountElement = document.getElementById('userCount');
     const debugLog = document.getElementById('debug-log');
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
     
     // デバッグログを表示する関数
     const addDebugLog = (message) => {
@@ -59,6 +71,28 @@
     // エラー時のログ
     socket.on('error', (error) => {
       addDebugLog(`エラーが発生: ${error}`);
+    });
+
+    // フォーム送信時の処理
+    messageForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const message = messageInput.value.trim();
+      
+      if (message) {
+        // サーバーにメッセージを送信
+        socket.emit('clientMessage', {
+          message: message,
+          timestamp: new Date().toISOString()
+        });
+        
+        addDebugLog(`メッセージを送信: ${message}`);
+        messageInput.value = ''; // 入力フィールドをクリア
+      }
+    });
+
+    // サーバーからの応答を受け取る
+    socket.on('serverResponse', (data) => {
+      addDebugLog(`サーバーからの応答: ${data.message}`);
     });
   </script>
 </body>

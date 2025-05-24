@@ -41,6 +41,40 @@ io.on('connection', (socket) => {
     io.emit('userCount', connectedUsers);
     console.log(`[DEBUG] userCountイベントを送信: ${connectedUsers}`);
   });
+
+  // クライアントからのメッセージを受信
+  socket.on('clientMessage', (data) => {
+    const now = new Date().toLocaleString('ja-JP');
+    console.log(`[${now}] メッセージを受信:`, data);
+
+    // メッセージの検証
+    if (!data.message || typeof data.message !== 'string') {
+      console.log('[DEBUG] 無効なメッセージ形式');
+      socket.emit('serverResponse', {
+        message: 'エラー: 無効なメッセージ形式です'
+      });
+      return;
+    }
+
+    // メッセージの長さチェック
+    if (data.message.length > 1000) {
+      console.log('[DEBUG] メッセージが長すぎます');
+      socket.emit('serverResponse', {
+        message: 'エラー: メッセージは1000文字以内で入力してください'
+      });
+      return;
+    }
+
+    // 正常なメッセージの場合、応答を送信
+    socket.emit('serverResponse', {
+      message: `メッセージを受信しました: "${data.message}"`
+    });
+
+    // 全クライアントに通知（オプション）
+    socket.broadcast.emit('serverResponse', {
+      message: `新しいメッセージ: "${data.message}"`
+    });
+  });
 });
 
 app.get('/', (req, res) => {
