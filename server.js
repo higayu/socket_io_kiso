@@ -47,7 +47,12 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
 
-server.listen(3000, () => {
-  console.log('http://localhost:3000 でサーバー起動');
+// プライベートアドレスでサーバーを起動
+const PORT = 3000;
+const HOST = '0.0.0.0';  // すべてのネットワークインターフェースでリッスン
+
+server.listen(PORT, HOST, () => {
+  console.log(`サーバーが起動しました: http://${HOST}:${PORT}`);
+  console.log('注意: プライベートアドレス（例：192.168.x.x）でアクセスしてください');
   console.log('[DEBUG] サーバー起動時の接続数: 0');
 });
