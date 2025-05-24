@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Socket.IO テスト</title>
+  <style>
+    .user-count {
+      margin: 20px;
+      padding: 10px;
+      background-color: #f0f0f0;
+      border-radius: 5px;
+      display: inline-block;
+    }
+    #debug-log {
+      margin: 20px;
+      padding: 10px;
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Socket.IO テストページ</h1>
+  <div class="user-count">
+    現在の接続数: <span id="userCount">0</span>人
+  </div>
+  <div id="debug-log"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const userCountElement = document.getElementById('userCount');
+    const debugLog = document.getElementById('debug-log');
+    
+    // デバッグログを表示する関数
+    const addDebugLog = (message) => {
+      const now = new Date().toLocaleTimeString('ja-JP');
+      debugLog.textContent += `[${now}] ${message}\n`;
+    };
+    
+    // 接続時のログ
+    socket.on('connect', () => {
+      addDebugLog('サーバーに接続しました');
+    });
+    
+    // 切断時のログ
+    socket.on('disconnect', () => {
+      addDebugLog('サーバーから切断されました');
+    });
+    
+    // サーバーからのユーザー数更新を受け取る
+    socket.on('userCount', (count) => {
+      addDebugLog(`userCountイベントを受信: ${count}`);
+      userCountElement.textContent = count;
+    });
+    
+    // エラー時のログ
+    socket.on('error', (error) => {
+      addDebugLog(`エラーが発生: ${error}`);
+    });
+  </script>
+</body>
+</html>
