@@ -1,7 +1,7 @@
 # server.js 仕様書
 
 ## 概要
-このファイルは、Socket.IOを使用したリアルタイム通信を実現するためのサーバーサイドの実装です。Express.jsとSocket.IOを組み合わせて、WebSocket通信を提供します。
+このファイルは、Socket.IOを使用したリアルタイム通信を実現するためのサーバーサイドの実装です。Express.jsとSocket.IOを組み合わせて、WebSocket通信を提供し、1対1のマッチング機能を実現します。
 
 ## 技術スタック
 - Node.js
@@ -31,105 +31,118 @@ socket-demo/
 
 ## 実装詳細
 
-### 1. モジュールのインポート
+### 1. データ構造
+
+#### 1.1 グローバル変数
 ```javascript
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+let connectedUsers = 0;           // 接続中のユーザー数
+const rooms = new Map();          // 部屋情報の管理
+const userStates = new Map();     // ユーザーの状態管理
 ```
-- `express`: Webアプリケーションフレームワーク
-- `http`: HTTPサーバー機能を提供
-- `socket.io`: WebSocket通信を実現するためのライブラリ
 
-### 2. サーバーの初期化
+#### 1.2 部屋の構造
 ```javascript
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+{
+  name: string,           // 部屋名
+  createdAt: Date,        // 作成日時
+  createdBy: string,      // 作成者のsocket.id
+  status: string,         // 'waiting' または 'in_progress'
+  players: string[]       // 参加者のsocket.id配列
+}
 ```
-- Expressアプリケーションの作成
-- HTTPサーバーの作成
-- Socket.IOサーバーの初期化
 
-### 3. Socket.IOイベントハンドリング
+#### 1.3 ユーザーの状態
+- `online`: 接続中で部屋に参加していない
+- `in_room`: 部屋に参加中
+
+### 2. 主要機能
+
+#### 2.1 ユーティリティ関数
 ```javascript
-// 接続中のユーザー数を管理
-let connectedUsers = 0;
+// 接続状態のログ出力
+const logConnectionStatus = (action) => { ... }
 
+// 部屋状態のログ出力
+const logRoomStatus = (action) => { ... }
+
+// 参加可能な部屋一覧の取得
+const getRoomsList = () => { ... }
+
+// ユーザー状態の更新
+const updateUserState = (socketId, state) => { ... }
+```
+
+#### 2.2 部屋管理機能
+- 部屋の作成
+  - 部屋名とIDの検証
+  - 重複チェック
+  - 作成者の参加
+- 部屋への参加
+  - 部屋の存在確認
+  - 満員チェック
+  - 状態の更新
+- 部屋からの退出
+  - プレイヤーの削除
+  - 空き部屋の削除
+  - 残りプレイヤーへの通知
+
+### 3. Socket.IOイベント
+
+#### 3.1 接続管理
+```javascript
 io.on('connection', (socket) => {
-  // ユーザー数を増やす
+  // 接続時の処理
   connectedUsers++;
-  
-  // 接続ログを出力（接続時刻とユーザー数を表示）
-  const now = new Date().toLocaleString('ja-JP');
-  console.log(`[${now}] クライアントが接続しました (現在の接続数: ${connectedUsers})`);
-  
-  // 接続時に全クライアントに現在のユーザー数を通知
-  io.emit('userCount', connectedUsers);
+  updateUserState(socket.id, 'online');
+  socket.emit('roomsList', getRoomsList());
 
+  // 切断時の処理
   socket.on('disconnect', () => {
-    // ユーザー数を減らす
-    connectedUsers--;
-    
-    // 切断ログを出力
-    const now = new Date().toLocaleString('ja-JP');
-    console.log(`[${now}] クライアントが切断されました (現在の接続数: ${connectedUsers})`);
-    
-    // 切断時も全クライアントに現在のユーザー数を通知
-    io.emit('userCount', connectedUsers);
+    // 部屋からの退出処理
+    // ユーザー状態の更新
+    // 接続数の更新
   });
 });
 ```
 
-#### 3.3 接続ログとユーザー数管理
-- サーバー側で接続中のユーザー数を `connectedUsers` 変数で管理
-- 接続/切断時に以下の処理を実行：
-  1. ユーザー数の増減
-  2. タイムスタンプ付きの接続/切断ログの出力
-  3. 全クライアントへの現在のユーザー数の通知（`userCount` イベント）
-- クライアント側では：
-  1. `userCount` イベントを受け取って表示を更新
-  2. 接続数の表示はスタイリングされたUIで提供
-- これにより、リアルタイムで接続状態を監視・表示可能
-
-#### 3.1 Socket.IO接続の仕組み
-- `io.on('connection')` は `app.get('/')` の有無に関係なく動作します
-- これは、Socket.IOが独自の接続ハンドリングメカニズムを持っているためです
-- 具体的な動作の流れ：
-  1. クライアントが `http://localhost:3000` にアクセス
-  2. Socket.IOクライアントライブラリ（`/socket.io/socket.io.js`）が自動的にロード
-  3. クライアント側で `io()` が実行されると、WebSocket接続が確立
-  4. 接続が確立されると、サーバー側の `io.on('connection')` が実行
-- `app.get('/')` は主にHTMLファイルの提供を担当し、Socket.IOの接続とは独立して動作
-- ただし、通常は `app.get('/')` でHTMLファイルを提供し、その中でSocket.IOクライアントを初期化する実装が一般的
-
-#### 3.2 app.get('/')がコメントアウトされた場合の動作
-- `app.get('/')` をコメントアウトすると、クライアントが `http://localhost:3000` にアクセスした際に：
-  1. HTMLファイルが提供されないため、ブラウザは404エラーを表示
-  2. その結果、Socket.IOクライアントライブラリ（`/socket.io/socket.io.js`）が読み込まれない
-  3. クライアント側で `io()` が実行されないため、WebSocket接続が確立されない
-  4. サーバー側の `io.on('connection')` のコールバックが実行されない
-- つまり、`app.get('/')` は直接Socket.IOの接続には影響しないが、クライアント側のSocket.IO初期化に必要なHTMLファイルの提供を担当している
-- このため、`app.get('/')` をコメントアウトすると、結果的にSocket.IOの接続が確立されなくなる
-
-### 4. HTTPルーティング
+#### 3.2 部屋関連イベント
 ```javascript
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+// 部屋作成
+socket.on('createRoom', (data) => {
+  // バリデーション
+  // 部屋の作成
+  // 状態の更新
+  // 通知の送信
+});
+
+// 部屋参加
+socket.on('joinRoom', (data) => {
+  // バリデーション
+  // プレイヤーの追加
+  // 状態の更新
+  // 通知の送信
+});
+
+// 部屋退出
+socket.on('leaveRoom', (data) => {
+  // プレイヤーの削除
+  // 部屋の状態更新
+  // 通知の送信
 });
 ```
-- ルートパス（'/'）へのアクセス時に`public/index.html`を返す
-sendFileで **/public/index.htmlへのパス** を指定しているからルートディレクトリにindex.htmlが表示されている
-- クライアント側のファイルは`public`ディレクトリに配置し、セキュリティと管理の観点から分離
 
-### 5. サーバー起動
-```javascript
-server.listen(3000, () => {
-  console.log('http://localhost:3000 でサーバー起動');
-});
-```
-- ポート3000でサーバーを起動
-- 起動完了時にコンソールにメッセージを表示
+### 4. エラー処理
+- 無効な部屋情報
+- 重複する部屋ID
+- 存在しない部屋への参加
+- 満員の部屋への参加
+- 既に部屋に参加している場合
+
+### 5. 通知システム
+- 部屋一覧の更新通知
+- 部屋状態の変更通知
+- 対戦相手の退出通知
+- エラー通知
 
 ## 動作確認方法
 1. サーバーの起動
@@ -137,9 +150,22 @@ server.listen(3000, () => {
 node server.js
 ```
 2. ブラウザで `http://localhost:3000` にアクセス
-3. ブラウザのコンソールで接続メッセージを確認
-4. サーバーのコンソールで接続ログを確認
+3. 複数のブラウザウィンドウを開いてテスト
+4. 部屋の作成と参加を試行
+5. マッチングの成立を確認
+6. 部屋からの退出をテスト
 
 ## 注意事項
-- ポート3000が他のプロセスで使用されている場合は、別のポート番号に変更する必要があります
-- 本番環境では適切なセキュリティ設定（CORS、認証など）を追加することを推奨します 
+- ポート3000が他のプロセスで使用されている場合は変更が必要
+- 本番環境では適切なセキュリティ設定を追加
+- エラー発生時は適切なエラーメッセージを返す
+- 部屋の状態は常に同期を維持
+
+## 今後の拡張性
+- 部屋のパスワード保護
+- ユーザー認証の追加
+- 部屋の設定機能
+- マッチング履歴の保存
+- チャット機能の実装
+- 部屋の最大人数設定
+- 部屋の種類（公開/非公開）の追加 
