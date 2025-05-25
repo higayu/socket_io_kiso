@@ -20,6 +20,65 @@
       font-family: monospace;
       white-space: pre-wrap;
     }
+    .rooms-container {
+      margin: 20px;
+      padding: 10px;
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .room-item {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #fff;
+      border: 1px solid #eee;
+      border-radius: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .room-status {
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+    .status-waiting {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+    .status-in-progress {
+      background-color: #e8f5e9;
+      color: #2e7d32;
+    }
+    .room-actions {
+      display: flex;
+      gap: 10px;
+    }
+    /* マッチング状態表示用のスタイル */
+    .matching-status {
+      margin: 20px;
+      padding: 15px;
+      background-color: #fff3e0;
+      border: 1px solid #ffe0b2;
+      border-radius: 5px;
+      display: none;
+    }
+    .matching-status.active {
+      display: block;
+    }
+    .matching-status h3 {
+      margin: 0 0 10px 0;
+      color: #e65100;
+    }
+    .matching-status .status-message {
+      margin: 5px 0;
+    }
+    .matching-status .opponent-info {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #fff;
+      border-radius: 3px;
+    }
   </style>
 </head>
 <body>
@@ -28,13 +87,33 @@
     現在の接続数: <span id="userCount">0</span>人
   </div>
   
-  <!-- メッセージ送信用フォームを追加 -->
-  <div class="message-form" style="margin: 20px;">
-    <h2>メッセージ送信</h2>
-    <form id="messageForm">
-      <input type="text" id="messageInput" placeholder="メッセージを入力" style="padding: 5px; margin-right: 10px;">
-      <button type="submit" style="padding: 5px 15px;">送信</button>
+  <div class="user-count">
+    現在の部屋数: <span id="roomCount">0</span>部屋
+  </div>
+
+  <!-- マッチング状態表示 -->
+  <div id="matchingStatus" class="matching-status">
+    <h3>マッチング状態</h3>
+    <div class="status-message" id="matchingMessage"></div>
+    <div class="opponent-info" id="opponentInfo" style="display: none;">
+      <strong>対戦相手:</strong> <span id="opponentId"></span>
+    </div>
+    <button id="leaveRoomBtn" style="margin-top: 10px; padding: 5px 15px;">部屋を退出</button>
+  </div>
+  
+  <!-- 部屋作成フォーム -->
+  <div id="roomCreation" class="message-form" style="margin: 20px;">
+    <h2>部屋の作成</h2>
+    <form id="roomForm">
+      <input type="text" id="roomNameInput" placeholder="部屋の名前を入力" style="padding: 5px; margin-right: 10px;">
+      <button type="submit" style="padding: 5px 15px;">部屋を作成</button>
     </form>
+  </div>
+
+  <!-- 部屋一覧 -->
+  <div id="roomsListContainer" class="rooms-container">
+    <h2>部屋一覧</h2>
+    <div id="roomsList"></div>
   </div>
 
   <div id="debug-log"></div>
@@ -42,57 +121,168 @@
   <script>
     const socket = io();
     const userCountElement = document.getElementById('userCount');
+    const roomCountElement = document.getElementById('roomCount');
     const debugLog = document.getElementById('debug-log');
-    const messageForm = document.getElementById('messageForm');
-    const messageInput = document.getElementById('messageInput');
-    
-    // デバッグログを表示する関数
-    const addDebugLog = (message) => {
-      const now = new Date().toLocaleTimeString('ja-JP');
-      debugLog.textContent += `[${now}] ${message}\n`;
+    const roomForm = document.getElementById('roomForm');
+    const roomNameInput = document.getElementById('roomNameInput');
+    const roomsList = document.getElementById('roomsList');
+    const matchingStatus = document.getElementById('matchingStatus');
+    const matchingMessage = document.getElementById('matchingMessage');
+    const opponentInfo = document.getElementById('opponentInfo');
+    const opponentId = document.getElementById('opponentId');
+    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+    const roomCreation = document.getElementById('roomCreation');
+    const roomsListContainer = document.getElementById('roomsListContainer');
+
+    let currentRoom = null;
+
+    // マッチング状態を更新する関数
+    const updateMatchingStatus = (room, isHost) => {
+      currentRoom = room;
+      matchingStatus.classList.add('active');
+      roomCreation.style.display = 'none';
+      roomsListContainer.style.display = 'none';
+
+      if (room.status === 'waiting') {
+        matchingMessage.textContent = isHost ? 
+          '相手の参加を待っています...' : 
+          '部屋に参加しました。ホストの準備を待っています...';
+        opponentInfo.style.display = 'none';
+      } else if (room.status === 'in_progress') {
+        matchingMessage.textContent = 'マッチングが成立しました！';
+        opponentInfo.style.display = 'block';
+        opponentId.textContent = isHost ? room.opponent : room.createdBy;
+      }
     };
-    
-    // 接続時のログ
-    socket.on('connect', () => {
-      addDebugLog('サーバーに接続しました');
-    });
-    
-    // 切断時のログ
-    socket.on('disconnect', () => {
-      addDebugLog('サーバーから切断されました');
-    });
-    
-    // サーバーからのユーザー数更新を受け取る
-    socket.on('userCount', (count) => {
-      addDebugLog(`userCountイベントを受信: ${count}`);
-      userCountElement.textContent = count;
-    });
-    
-    // エラー時のログ
-    socket.on('error', (error) => {
-      addDebugLog(`エラーが発生: ${error}`);
+
+    // マッチング状態をリセットする関数
+    const resetMatchingStatus = () => {
+      currentRoom = null;
+      matchingStatus.classList.remove('active');
+      roomCreation.style.display = 'block';
+      roomsListContainer.style.display = 'block';
+      opponentInfo.style.display = 'none';
+    };
+
+    // 部屋から退出する関数
+    const leaveRoom = () => {
+      if (currentRoom) {
+        socket.emit('leaveRoom', { roomId: currentRoom.roomId });
+        resetMatchingStatus();
+      }
+    };
+
+    // 部屋一覧を表示する関数
+    const updateRoomsList = (rooms) => {
+      console.log('[DEBUG] 部屋一覧を更新:', rooms);
+      roomsList.innerHTML = '';
+      roomCountElement.textContent = rooms.length;
+      addDebugLog(`部屋一覧を更新: ${rooms.length}部屋`);
+      
+      rooms.forEach(room => {
+        const roomElement = document.createElement('div');
+        roomElement.className = 'room-item';
+        
+        const statusClass = room.status === 'waiting' ? 'status-waiting' : 'status-in-progress';
+        const statusText = room.status === 'waiting' ? '待機中' : '進行中';
+        
+        roomElement.innerHTML = `
+          <div>
+            <strong>${room.roomName}</strong>
+            <span class="room-status ${statusClass}">${statusText}</span>
+          </div>
+          <div class="room-actions">
+            ${room.status === 'waiting' && room.createdBy !== socket.id ? 
+              `<button onclick="joinRoom('${room.roomId}')" style="padding: 5px 15px;">参加</button>` : 
+              ''}
+          </div>
+        `;
+        
+        roomsList.appendChild(roomElement);
+      });
+    };
+
+    // 部屋に参加する関数
+    window.joinRoom = (roomId) => {
+      socket.emit('joinRoom', { roomId });
+    };
+
+    // イベントリスナーの設定
+    leaveRoomBtn.addEventListener('click', leaveRoom);
+
+    // サーバーからの部屋一覧を受信
+    socket.on('roomsList', (rooms) => {
+      console.log('[DEBUG] 部屋一覧を受信:', rooms);
+      updateRoomsList(rooms);
     });
 
-    // フォーム送信時の処理
-    messageForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const message = messageInput.value.trim();
-      
-      if (message) {
-        // サーバーにメッセージを送信
-        socket.emit('clientMessage', {
-          message: message,
-          timestamp: new Date().toISOString()
-        });
-        
-        addDebugLog(`メッセージを送信: ${message}`);
-        messageInput.value = ''; // 入力フィールドをクリア
+    // 部屋作成成功時の処理
+    socket.on('roomCreated', (data) => {
+      addDebugLog(`部屋が作成されました: ${data.roomName} (ID: ${data.roomId})`);
+      updateMatchingStatus(data, true);
+    });
+
+    // 部屋参加成功時の処理
+    socket.on('roomJoined', (data) => {
+      addDebugLog(`部屋に参加しました: ${data.roomName} (ID: ${data.roomId})`);
+      updateMatchingStatus(data, false);
+    });
+
+    // 部屋の状態変更時の処理
+    socket.on('roomStatusChanged', (data) => {
+      addDebugLog(`部屋の状態が変更されました: ${data.status}`);
+      if (currentRoom && currentRoom.roomId === data.roomId) {
+        currentRoom.status = data.status;
+        updateMatchingStatus(currentRoom, true);
       }
     });
 
-    // サーバーからの応答を受け取る
-    socket.on('serverResponse', (data) => {
-      addDebugLog(`サーバーからの応答: ${data.message}`);
+    // 対戦相手が退出した時の処理
+    socket.on('opponentLeft', (data) => {
+      addDebugLog('対戦相手が退出しました');
+      matchingMessage.textContent = '対戦相手が退出しました';
+      opponentInfo.style.display = 'none';
+    });
+
+    // エラー時の処理
+    socket.on('roomError', (error) => {
+      addDebugLog(`エラー: ${error.message}`);
+      alert(error.message);
+    });
+
+    // フォーム送信時の処理
+    roomForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const roomName = roomNameInput.value.trim();
+      
+      if (roomName) {
+        socket.emit('createRoom', {
+          roomName: roomName,
+          roomId: crypto.randomUUID(),
+          timestamp: new Date().toISOString()
+        });
+        
+        addDebugLog(`部屋作成リクエストを送信: ${roomName}`);
+        roomNameInput.value = '';
+      }
+    });
+
+    // 接続時の処理
+    socket.on('connect', () => {
+      addDebugLog('サーバーに接続しました');
+      resetMatchingStatus();
+    });
+
+    // 切断時の処理
+    socket.on('disconnect', () => {
+      addDebugLog('サーバーから切断されました');
+      resetMatchingStatus();
+    });
+
+    // ユーザー数更新の処理
+    socket.on('userCount', (count) => {
+      addDebugLog(`userCountイベントを受信: ${count}`);
+      userCountElement.textContent = count;
     });
   </script>
 </body>
