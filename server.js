@@ -14,6 +14,8 @@ let connectedUsers = 0;
 const rooms = new Map();
 // ユーザーの状態を管理
 const userStates = new Map();
+// じゃんけんゲームの状態を管理
+const gameStates = new Map();
 //-------------------------------//
 
 
@@ -225,6 +227,9 @@ io.on('connection', (socket) => {
     const room = rooms.get(data.roomId);
     if (!room) return;
 
+    // ゲーム状態を削除
+    gameStates.delete(data.roomId);
+
     // 部屋からプレイヤーを削除
     room.players = room.players.filter(id => id !== socket.id);
     // プレイヤーの名前も削除
@@ -365,6 +370,44 @@ io.on('connection', (socket) => {
       playerName: data.playerName
     });
   });
+
+  // じゃんけんの手を処理
+  socket.on('playHand', ({ roomId, hand }) => {
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    // ホストの判定を修正（作成者IDと一致するかで判定）
+    const isHost = socket.id === room.createdBy;
+    const gameState = gameStates.get(roomId) || { hostHand: null, guestHand: null };
+
+    // 手を保存（ホストとゲストの判定を明確に）
+    if (isHost) {
+      gameState.hostHand = hand;
+      console.log(`[DEBUG] ホスト(${room.playerNames.get(socket.id)})の手: ${hand}`);
+    } else {
+      gameState.guestHand = hand;
+      console.log(`[DEBUG] ゲスト(${room.playerNames.get(socket.id)})の手: ${hand}`);
+    }
+    gameStates.set(roomId, gameState);
+
+    // 両者の手が出揃った場合
+    if (gameState.hostHand && gameState.guestHand) {
+      const winner = determineWinner(gameState.hostHand, gameState.guestHand);
+      const result = {
+        hostHand: gameState.hostHand,
+        guestHand: gameState.guestHand,
+        winner
+      };
+
+      console.log(`[DEBUG] じゃんけん結果: ホスト(${gameState.hostHand}) vs ゲスト(${gameState.guestHand}) -> ${winner}`);
+
+      // 結果を両者に送信
+      io.to(roomId).emit('gameResult', result);
+
+      // ゲーム状態をリセット
+      gameStates.set(roomId, { hostHand: null, guestHand: null });
+    }
+  });
 });
 //----------------------------------------------------//
 
@@ -392,3 +435,17 @@ server.listen(PORT, HOST, () => {
   logRoomStatus('サーバー起動時');
 });
 //----------------------------------------//
+
+// じゃんけんの勝敗判定
+function determineWinner(hostHand, guestHand) {
+  if (hostHand === guestHand) return 'draw';
+  
+  if (
+    (hostHand === 'rock' && guestHand === 'scissors') ||
+    (hostHand === 'scissors' && guestHand === 'paper') ||
+    (hostHand === 'paper' && guestHand === 'rock')
+  ) {
+    return 'host';
+  }
+  return 'guest';
+}
