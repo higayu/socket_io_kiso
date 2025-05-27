@@ -106,6 +106,7 @@
     <h2>部屋の作成</h2>
     <form id="roomForm">
       <input type="text" id="roomNameInput" placeholder="部屋の名前を入力" style="padding: 5px; margin-right: 10px;">
+      <input type="text" id="roomCreatorInput" placeholder="作成者名" style="padding: 5px; margin-right: 10px;">
       <button type="submit" style="padding: 5px 15px;">部屋を作成</button>
     </form>
   </div>
@@ -133,6 +134,7 @@
     const debugLog = document.getElementById('debug-log');
     const roomForm = document.getElementById('roomForm');
     const roomNameInput = document.getElementById('roomNameInput');
+    const roomCreatorInput = document.getElementById('roomCreatorInput');
     const roomsList = document.getElementById('roomsList');
     const matchingStatus = document.getElementById('matchingStatus');
     const matchingMessage = document.getElementById('matchingMessage');
@@ -262,11 +264,13 @@
     roomForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const roomName = roomNameInput.value.trim();
+      const roomCreator = roomCreatorInput.value.trim();
       
       if (roomName) {
         socket.emit('createRoom', {
           roomName: roomName,
           roomId: crypto.randomUUID(),
+          roomCreator: roomCreator,
           timestamp: new Date().toISOString()
         });
         

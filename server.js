@@ -36,6 +36,7 @@ const getRoomsList = () => {
     .map(([roomId, room]) => ({
       roomId,
       roomName: room.name,
+      roomCreator: room.roomCreator,
       createdAt: room.createdAt,
       createdBy: room.createdBy,
       status: room.status
@@ -113,6 +114,7 @@ io.on('connection', (socket) => {
     // 部屋を作成
     rooms.set(data.roomId, {
       name: data.roomName,
+      roomCreator: data.roomCreator,
       createdAt: new Date(),
       createdBy: socket.id,
       status: 'waiting',
@@ -129,6 +131,7 @@ io.on('connection', (socket) => {
     socket.emit('roomCreated', {
       roomId: data.roomId,
       roomName: data.roomName,
+      roomCreator: data.roomCreator,
       status: 'waiting',
       isHost: true
     });
@@ -185,13 +188,15 @@ io.on('connection', (socket) => {
       hostSocket.emit('roomStatusChanged', {
         roomId: data.roomId,
         status: room.status,
-        opponent: socket.id
+        opponent: socket.id,
+        roomCreator: room.roomCreator
       });
     }
 
     socket.emit('roomJoined', {
       roomId: data.roomId,
       roomName: room.name,
+      roomCreator: room.roomCreator,
       status: room.status,
       isHost: false,
       opponent: room.createdBy
