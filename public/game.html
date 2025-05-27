@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ゲームルーム</title>
+  <style>
+    .game-container {
+      margin: 20px;
+      padding: 20px;
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .player-info {
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #fff;
+      border-radius: 3px;
+    }
+    .player-info.host {
+      background-color: #e3f2fd;
+    }
+    .player-info.guest {
+      background-color: #e8f5e9;
+    }
+    #debug-log {
+      margin: 20px;
+      padding: 10px;
+      background-color: #f8f8f8;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>ゲームルーム</h1>
+    <div id="roomInfo" class="player-info">
+      <h2>部屋情報</h2>
+      <div id="roomName"></div>
+      <div id="roomStatus"></div>
+    </div>
+    <div id="hostInfo" class="player-info host">
+      <h3>ホスト</h3>
+      <div id="hostName"></div>
+    </div>
+    <div id="guestInfo" class="player-info guest">
+      <h3>ゲスト</h3>
+      <div id="guestName"></div>
+    </div>
+    <button id="leaveRoomBtn" style="margin-top: 10px; padding: 5px 15px;">部屋を退出</button>
+  </div>
+
+  <div id="debug-log"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    function addDebugLog(message) {
+      const logEntry = document.createElement('div');
+      const now = new Date().toLocaleTimeString();
+      logEntry.textContent = `[${now}] ${message}`;
+      debugLog.appendChild(logEntry);
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    const socket = io();
+    const debugLog = document.getElementById('debug-log');
+    const roomName = document.getElementById('roomName');
+    const roomStatus = document.getElementById('roomStatus');
+    const hostName = document.getElementById('hostName');
+    const guestName = document.getElementById('guestName');
+    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+
+    // URLから部屋情報を取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('roomId');
+    const isHost = urlParams.get('isHost') === 'true';
+    const playerName = urlParams.get('playerName');
+    const opponentName = urlParams.get('opponentName');
+
+    if (!roomId) {
+      alert('無効な部屋情報です');
+      window.location.href = '/';
+    }
+
+    // 部屋情報を表示
+    roomName.textContent = `部屋ID: ${roomId}`;
+    roomStatus.textContent = '対戦中';
+    hostName.textContent = isHost ? playerName : opponentName;
+    guestName.textContent = isHost ? opponentName : playerName;
+
+    // 部屋を退出する処理
+    leaveRoomBtn.addEventListener('click', () => {
+      socket.emit('leaveRoom', { roomId });
+      window.location.href = '/';
+    });
+
+    // 切断時の処理
+    socket.on('disconnect', () => {
+      addDebugLog('サーバーから切断されました');
+      window.location.href = '/';
+    });
+
+    // 対戦相手が退出した時の処理
+    socket.on('opponentLeft', () => {
+      addDebugLog('対戦相手が退出しました');
+      alert('対戦相手が退出しました');
+      window.location.href = '/';
+    });
+
+    // 接続時の処理
+    socket.on('connect', () => {
+      addDebugLog('サーバーに接続しました');
+      // 部屋に再接続
+      socket.emit('rejoinRoom', { 
+        roomId,
+        isHost,
+        playerName,
+        opponentName
+      });
+    });
+  </script>
+</body>
+</html> 

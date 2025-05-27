@@ -273,7 +273,18 @@
     // 部屋参加成功時の処理
     socket.on('roomJoined', (data) => {
       addDebugLog(`部屋に参加しました: ${data.roomName} (ID: ${data.roomId})`);
-      updateMatchingStatus(data, false);
+      if (data.status === 'in_progress') {
+        // マッチング成立時に新しいページに遷移
+        const params = new URLSearchParams({
+          roomId: data.roomId,
+          isHost: false,
+          playerName: data.playerName,
+          opponentName: data.roomCreator
+        });
+        window.location.href = `/game?${params.toString()}`;
+      } else {
+        updateMatchingStatus(data, false);
+      }
     });
 
     // 部屋の状態変更時の処理
@@ -281,9 +292,22 @@
       addDebugLog(`部屋の状態が変更されました: ${data.status}`);
       if (currentRoom && currentRoom.roomId === data.roomId) {
         currentRoom.status = data.status;
-        currentRoom.opponentName = data.opponentName;  // 対戦相手の名前を保存
-        currentRoom.playerName = data.playerName;      // 自分の名前を保存
-        updateMatchingStatus(currentRoom, true);
+        currentRoom.opponentName = data.opponentName;
+        currentRoom.playerName = data.playerName;
+
+        if (data.status === 'in_progress') {
+          // マッチング成立時に新しいページに遷移
+          const isHost = currentRoom.createdBy === socket.id;
+          const params = new URLSearchParams({
+            roomId: data.roomId,
+            isHost: isHost,
+            playerName: data.playerName,
+            opponentName: data.opponentName
+          });
+          window.location.href = `/game?${params.toString()}`;
+        } else {
+          updateMatchingStatus(currentRoom, true);
+        }
       }
     });
 

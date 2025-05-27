@@ -326,6 +326,41 @@ io.on('connection', (socket) => {
       message: `新しいメッセージ: "${data.message}"`
     });
   });
+
+  // 部屋への再接続リクエストを処理
+  socket.on('rejoinRoom', (data) => {
+    const room = rooms.get(data.roomId);
+    if (!room) {
+      socket.emit('roomError', {
+        message: 'エラー: 指定された部屋が存在しません'
+      });
+      return;
+    }
+
+    // プレイヤーが既に部屋に存在する場合は更新、存在しない場合は追加
+    if (!room.players.includes(socket.id)) {
+      room.players.push(socket.id);
+    }
+
+    // プレイヤーの名前を更新
+    if (!room.playerNames) {
+      room.playerNames = new Map();
+    }
+    room.playerNames.set(socket.id, data.playerName);
+
+    // ユーザーの状態を更新
+    updateUserState(socket.id, 'in_room');
+
+    // 部屋の状態を送信
+    socket.emit('roomStatusChanged', {
+      roomId: data.roomId,
+      status: room.status,
+      opponent: data.isHost ? room.players.find(id => id !== socket.id) : room.createdBy,
+      roomCreator: room.roomCreator,
+      opponentName: data.opponentName,
+      playerName: data.playerName
+    });
+  });
 });
 //----------------------------------------------------//
 
@@ -333,6 +368,10 @@ io.on('connection', (socket) => {
 //--------表示するwebページの参照元------//
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
+});
+
+app.get('/game', (req, res) => {
+  res.sendFile(__dirname + '/public/game.html');
 });
 //-------------------------------------//
 
