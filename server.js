@@ -7,12 +7,15 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+//----フィールド----------------//
 // 接続中のユーザー数を管理
 let connectedUsers = 0;
 // 作成された部屋を管理
 const rooms = new Map();
 // ユーザーの状態を管理
 const userStates = new Map();
+//-------------------------------//
+
 
 // デバッグ用：現在の接続数を表示する関数
 const logConnectionStatus = (action) => {
@@ -23,6 +26,8 @@ const logConnectionStatus = (action) => {
 const logRoomStatus = (action) => {
   console.log(`[DEBUG] ${action} - 現在の部屋数: ${rooms.size}`);
 };
+
+
 
 // 部屋の一覧を取得する関数（参加可能な部屋のみ）
 const getRoomsList = () => {
@@ -43,6 +48,8 @@ const updateUserState = (socketId, state) => {
   console.log(`[DEBUG] ユーザー状態を更新: ${socketId} -> ${state}`);
 };
 
+
+//----localhost:3000に接続してwebページを表示
 io.on('connection', (socket) => {
   // ユーザー数を増やす
   connectedUsers++;
@@ -53,8 +60,12 @@ io.on('connection', (socket) => {
   socket.emit('roomsList', getRoomsList());
   console.log('[DEBUG] 接続時に部屋一覧を送信:', getRoomsList());
 
-  // クライアントからの部屋作成リクエストを処理
+  // 接続時に全クライアントに接続数を送信
+  io.emit('userCount', connectedUsers);
+
+  // ------クライアントからの部屋作成リクエストを処理-----//
   socket.on('createRoom', (data) => {
+
     // 既に部屋に参加している場合はエラー
     if (userStates.get(socket.id) === 'in_room') {
       socket.emit('roomError', {
@@ -127,6 +138,7 @@ io.on('connection', (socket) => {
 
     console.log(`[DEBUG] 部屋を作成しました: ${data.roomName} (ID: ${data.roomId})`);
   });
+  //-------------------------------------------------//
 
   // 部屋への参加リクエストを処理
   socket.on('joinRoom', (data) => {
@@ -220,7 +232,7 @@ io.on('connection', (socket) => {
     io.emit('roomsList', getRoomsList());
   });
 
-  // 切断時の処理
+  // --------------切断時の処理-------------//
   socket.on('disconnect', () => {
     // ユーザーが参加している部屋を探して処理
     for (const [roomId, room] of rooms.entries()) {
@@ -259,6 +271,8 @@ io.on('connection', (socket) => {
     io.emit('userCount', connectedUsers);
     io.emit('roomsList', getRoomsList());
   });
+  //--------------------------------------//
+
 
   // クライアントからのメッセージを受信
   socket.on('clientMessage', (data) => {
@@ -294,13 +308,19 @@ io.on('connection', (socket) => {
     });
   });
 });
+//----------------------------------------------------//
 
+
+//--------表示するwebページの参照元------//
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/index.html');
 });
+//-------------------------------------//
 
-// プライベートアドレスでサーバーを起動
-const PORT = 3000;
+
+//-------プライベートアドレスでサーバーを起動------//
+//const PORT = 3000;
+const PORT = 3001;
 const HOST = '0.0.0.0';  // すべてのネットワークインターフェースでリッスン
 
 server.listen(PORT, HOST, () => {
@@ -309,3 +329,4 @@ server.listen(PORT, HOST, () => {
   console.log('[DEBUG] サーバー起動時の接続数: 0');
   logRoomStatus('サーバー起動時');
 });
+//----------------------------------------//

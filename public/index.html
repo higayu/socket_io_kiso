@@ -119,6 +119,14 @@
   <div id="debug-log"></div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
+    function addDebugLog(message) {
+      const logEntry = document.createElement('div');
+      const now = new Date().toLocaleTimeString();
+      logEntry.textContent = `[${now}] ${message}`;
+      debugLog.appendChild(logEntry);
+      debugLog.scrollTop = debugLog.scrollHeight; // 自動スクロール
+    }
+
     const socket = io();
     const userCountElement = document.getElementById('userCount');
     const roomCountElement = document.getElementById('roomCount');
