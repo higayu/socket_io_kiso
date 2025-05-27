@@ -79,6 +79,13 @@
       background-color: #fff;
       border-radius: 3px;
     }
+    .matching-status .room-creator-info {
+      margin-top: 10px;
+      padding: 10px;
+      background-color: #fff;
+      border-radius: 3px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
@@ -94,6 +101,7 @@
   <!-- マッチング状態表示 -->
   <div id="matchingStatus" class="matching-status">
     <h3>マッチング状態</h3>
+    <div class="room-creator-info" id="roomCreatorInfo" style="display: none;"></div>
     <div class="status-message" id="matchingMessage"></div>
     <div class="opponent-info" id="opponentInfo" style="display: none;">
       <strong>対戦相手:</strong> <span id="opponentId"></span>
@@ -140,6 +148,7 @@
     const matchingMessage = document.getElementById('matchingMessage');
     const opponentInfo = document.getElementById('opponentInfo');
     const opponentId = document.getElementById('opponentId');
+    const roomCreatorInfo = document.getElementById('roomCreatorInfo');
     const leaveRoomBtn = document.getElementById('leaveRoomBtn');
     const roomCreation = document.getElementById('roomCreation');
     const roomsListContainer = document.getElementById('roomsListContainer');
@@ -152,6 +161,14 @@
       matchingStatus.classList.add('active');
       roomCreation.style.display = 'none';
       roomsListContainer.style.display = 'none';
+
+      // 作成者情報の表示
+      if (room.roomCreator) {
+        roomCreatorInfo.style.display = 'block';
+        roomCreatorInfo.innerHTML = `<strong>作成者:</strong> ${room.roomCreator}`;
+      } else {
+        roomCreatorInfo.style.display = 'none';
+      }
 
       if (room.status === 'waiting') {
         matchingMessage.textContent = isHost ? 
@@ -172,6 +189,7 @@
       roomCreation.style.display = 'block';
       roomsListContainer.style.display = 'block';
       opponentInfo.style.display = 'none';
+      roomCreatorInfo.style.display = 'none';
     };
 
     // 部屋から退出する関数
@@ -200,6 +218,9 @@
           <div>
             <strong>${room.roomName}</strong>
             <span class="room-status ${statusClass}">${statusText}</span>
+            <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+              作成者: ${room.roomCreator || '不明'}
+            </div>
           </div>
           <div class="room-actions">
             ${room.status === 'waiting' && room.createdBy !== socket.id ? 
