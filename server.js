@@ -118,7 +118,8 @@ io.on('connection', (socket) => {
       createdAt: new Date(),
       createdBy: socket.id,
       status: 'waiting',
-      players: [socket.id] // 作成者をプレイヤーとして追加
+      players: [socket.id], // 作成者をプレイヤーとして追加
+      playerNames: new Map([[socket.id, data.roomCreator]])  // ホストの名前を保存
     });
 
     // ユーザーの状態を更新
@@ -133,7 +134,8 @@ io.on('connection', (socket) => {
       roomName: data.roomName,
       roomCreator: data.roomCreator,
       status: 'waiting',
-      isHost: true
+      isHost: true,
+      playerName: data.roomCreator  // ホストの名前を追加
     });
 
     // 全クライアントに部屋一覧を送信
@@ -192,13 +194,14 @@ io.on('connection', (socket) => {
     const hostSocket = io.sockets.sockets.get(room.createdBy);
     if (hostSocket) {
       const opponentName = room.playerNames.get(socket.id);  // 参加者の名前を取得
+      const hostName = room.playerNames.get(room.createdBy);  // ホストの名前を取得
       hostSocket.emit('roomStatusChanged', {
         roomId: data.roomId,
         status: room.status,
         opponent: socket.id,
         roomCreator: room.roomCreator,
-        opponentName: opponentName,  // 参加者の名前を送信
-        playerName: room.playerNames.get(room.createdBy)  // ホストの名前も送信
+        opponentName: opponentName,  // 参加者の名前
+        playerName: hostName  // ホストの名前
       });
     }
 
@@ -209,7 +212,8 @@ io.on('connection', (socket) => {
       isHost: false,
       opponent: room.createdBy,
       roomCreator: room.roomCreator,
-      playerName: data.playerName  // 参加者の名前を追加
+      playerName: data.playerName,  // 参加者の名前
+      opponentName: room.playerNames.get(room.createdBy)  // ホストの名前
     });
 
     // 全クライアントに部屋一覧を更新

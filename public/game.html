@@ -87,8 +87,17 @@
     // 部屋情報を表示
     roomName.textContent = `部屋ID: ${roomId}`;
     roomStatus.textContent = '対戦中';
-    hostName.textContent = isHost ? playerName : opponentName;
-    guestName.textContent = isHost ? opponentName : playerName;
+    
+    // ホストとゲストの表示を修正
+    if (isHost) {
+      // ホストの場合
+      hostName.textContent = playerName;  // ホストは自分
+      guestName.textContent = opponentName;  // ゲストは対戦相手
+    } else {
+      // ゲストの場合
+      hostName.textContent = opponentName;  // ホストは対戦相手
+      guestName.textContent = playerName;  // ゲストは自分
+    }
 
     // 部屋を退出する処理
     leaveRoomBtn.addEventListener('click', () => {

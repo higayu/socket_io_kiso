@@ -278,8 +278,8 @@
         const params = new URLSearchParams({
           roomId: data.roomId,
           isHost: false,
-          playerName: data.playerName,
-          opponentName: data.roomCreator
+          playerName: data.playerName,  // ゲストの名前
+          opponentName: data.roomCreator  // ホストの名前
         });
         window.location.href = `/game?${params.toString()}`;
       } else {
@@ -301,8 +301,8 @@
           const params = new URLSearchParams({
             roomId: data.roomId,
             isHost: isHost,
-            playerName: data.playerName,
-            opponentName: data.opponentName
+            playerName: isHost ? data.playerName : data.opponentName,  // 修正
+            opponentName: isHost ? data.opponentName : data.playerName  // 修正
           });
           window.location.href = `/game?${params.toString()}`;
         } else {
