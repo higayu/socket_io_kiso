@@ -178,7 +178,12 @@
       } else if (room.status === 'in_progress') {
         matchingMessage.textContent = 'マッチングが成立しました！';
         opponentInfo.style.display = 'block';
-        opponentId.textContent = isHost ? room.opponent : room.createdBy;
+        const opponentName = isHost ? room.opponentName : room.roomCreator;
+        const playerName = isHost ? room.roomCreator : room.playerName;
+        opponentInfo.innerHTML = `
+          <div><strong>あなた:</strong> ${playerName}</div>
+          <div><strong>対戦相手:</strong> ${opponentName}</div>
+        `;
       }
     };
 
@@ -224,7 +229,10 @@
           </div>
           <div class="room-actions">
             ${room.status === 'waiting' && room.createdBy !== socket.id ? 
-              `<button onclick="joinRoom('${room.roomId}')" style="padding: 5px 15px;">参加</button>` : 
+              `<form onsubmit="joinRoomWithName(event, '${room.roomId}')" style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" placeholder="あなたの名前" required style="padding: 5px;">
+                <button type="submit" style="padding: 5px 15px;">参加</button>
+              </form>` : 
               ''}
           </div>
         `;
@@ -233,9 +241,18 @@
       });
     };
 
-    // 部屋に参加する関数
-    window.joinRoom = (roomId) => {
-      socket.emit('joinRoom', { roomId });
+    // 部屋に参加する関数を修正
+    window.joinRoomWithName = (event, roomId) => {
+      event.preventDefault();
+      const form = event.target;
+      const playerName = form.querySelector('input[type="text"]').value.trim();
+      
+      if (playerName) {
+        socket.emit('joinRoom', { 
+          roomId: roomId,
+          playerName: playerName
+        });
+      }
     };
 
     // イベントリスナーの設定
@@ -264,6 +281,8 @@
       addDebugLog(`部屋の状態が変更されました: ${data.status}`);
       if (currentRoom && currentRoom.roomId === data.roomId) {
         currentRoom.status = data.status;
+        currentRoom.opponentName = data.opponentName;  // 対戦相手の名前を保存
+        currentRoom.playerName = data.playerName;      // 自分の名前を保存
         updateMatchingStatus(currentRoom, true);
       }
     });

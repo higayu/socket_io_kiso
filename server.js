@@ -178,6 +178,12 @@ io.on('connection', (socket) => {
     // 部屋に参加者を追加
     room.players.push(socket.id);
     room.status = room.players.length === 2 ? 'in_progress' : 'waiting';
+    
+    // 参加者の名前を保存
+    if (!room.playerNames) {
+      room.playerNames = new Map();
+    }
+    room.playerNames.set(socket.id, data.playerName);
 
     // ユーザーの状態を更新
     updateUserState(socket.id, 'in_room');
@@ -185,21 +191,25 @@ io.on('connection', (socket) => {
     // 部屋の作成者と参加者に通知
     const hostSocket = io.sockets.sockets.get(room.createdBy);
     if (hostSocket) {
+      const opponentName = room.playerNames.get(socket.id);  // 参加者の名前を取得
       hostSocket.emit('roomStatusChanged', {
         roomId: data.roomId,
         status: room.status,
         opponent: socket.id,
-        roomCreator: room.roomCreator
+        roomCreator: room.roomCreator,
+        opponentName: opponentName,  // 参加者の名前を送信
+        playerName: room.playerNames.get(room.createdBy)  // ホストの名前も送信
       });
     }
 
     socket.emit('roomJoined', {
       roomId: data.roomId,
       roomName: room.name,
-      roomCreator: room.roomCreator,
       status: room.status,
       isHost: false,
-      opponent: room.createdBy
+      opponent: room.createdBy,
+      roomCreator: room.roomCreator,
+      playerName: data.playerName  // 参加者の名前を追加
     });
 
     // 全クライアントに部屋一覧を更新
@@ -213,6 +223,10 @@ io.on('connection', (socket) => {
 
     // 部屋からプレイヤーを削除
     room.players = room.players.filter(id => id !== socket.id);
+    // プレイヤーの名前も削除
+    if (room.playerNames) {
+      room.playerNames.delete(socket.id);
+    }
     
     // 部屋が空になった場合は削除
     if (room.players.length === 0) {
