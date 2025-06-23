@@ -118,6 +118,10 @@
             statusDiv.style.color = '#155724';
             statusDiv.style.border = '1px solid #c3e6cb';
             console.log('Socket.IOに接続しました');
+            
+            // 接続成功時にユーザー数を手動でリクエスト
+            socket.emit('requestUserCount');
+            console.log('ユーザー数リクエスト送信');
         });
 
         // 切断時
@@ -128,10 +132,13 @@
             statusDiv.style.border = '1px solid #f5c6cb';
         });
 
-        // ユーザー数の更新を受信
+        // ユーザー数の更新を受信（接続前から設定）
         socket.on('userCount', (count) => {
+            console.log('=== userCount受信 ===');
+            console.log('受信時刻:', new Date().toISOString());
+            console.log('受信したユーザー数:', count);
+            console.log('接続状態:', socket.connected);
             userCountDiv.textContent = `接続中のユーザー数: ${count}人`;
-            console.log('ユーザー数が更新されました:', count);
         });
 
         // サーバーからのメッセージを受信
@@ -141,6 +148,12 @@
             messageElement.textContent = message;
             messagesDiv.appendChild(messageElement);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+
+        // ユーザー数リクエストを受信
+        socket.on('requestUserCount', () => {
+            console.log(`ユーザー数リクエスト受信: ${socket.id}`);
+            socket.emit('userCount', connectedUsers);
         });
 
         // メッセージ送信機能

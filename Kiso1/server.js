@@ -36,6 +36,12 @@ io.on('connection', (socket) => {
     io.emit('message', `ユーザー: ${data.message}`);
   });
   
+  // ユーザー数リクエストを受信
+  socket.on('requestUserCount', () => {
+    console.log(`ユーザー数リクエスト受信: ${socket.id}`);
+    socket.emit('userCount', connectedUsers);
+  });
+  
   // 切断時の処理
   socket.on('disconnect', () => {
     connectedUsers--;
