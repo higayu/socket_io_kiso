@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO ページ2</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .nav-links {
+            margin: 20px 0;
+        }
+        .nav-links a {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+        .nav-links a:hover {
+            background-color: #0056b3;
+        }
+        #connectionInfo {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info-item {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Socket.IO ページ2</h1>
+    
+    <div class="nav-links">
+        <a href="/">ホームページ</a>
+        <a href="/page2">ページ2</a>
+        <a href="/page3">ページ3</a>
+    </div>
+
+    <div id="connectionStatus" class="status disconnected">
+        接続状態: 確認中...
+    </div>
+
+    <div id="connectionInfo">
+        <h3>接続情報</h3>
+        <div class="info-item">接続ID: <span id="socketId">-</span></div>
+        <div class="info-item">接続時刻: <span id="connectTime">-</span></div>
+        <div class="info-item">ページ訪問回数: <span id="visitCount">-</span></div>
+    </div>
+
+    <div>
+        <h3>テスト機能</h3>
+        <button id="testButton">テストメッセージ送信</button>
+        <button id="disconnectButton">手動切断</button>
+        <button id="reconnectButton">再接続</button>
+    </div>
+
+    <div id="messages">
+        <h3>受信メッセージ</h3>
+        <div id="messageList"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket;
+        let visitCount = parseInt(localStorage.getItem('visitCount') || '0');
+        visitCount++;
+        localStorage.setItem('visitCount', visitCount.toString());
+        
+        document.getElementById('visitCount').textContent = visitCount;
+
+        function connectSocket() {
+            socket = io();
+            
+            // 接続成功時
+            socket.on('connect', () => {
+                const statusDiv = document.getElementById('connectionStatus');
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = '接続状態: 接続済み';
+                
+                document.getElementById('socketId').textContent = socket.id;
+                document.getElementById('connectTime').textContent = new Date().toLocaleString();
+                
+                console.log('Socket.IOに接続しました');
+            });
+
+            // 切断時
+            socket.on('disconnect', () => {
+                const statusDiv = document.getElementById('connectionStatus');
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = '接続状態: 切断';
+                
+                console.log('Socket.IOから切断されました');
+            });
+
+            // 再接続時
+            socket.on('reconnect', () => {
+                const statusDiv = document.getElementById('connectionStatus');
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = '接続状態: 再接続済み';
+                
+                document.getElementById('socketId').textContent = socket.id;
+                document.getElementById('connectTime').textContent = new Date().toLocaleString();
+                
+                console.log('Socket.IOに再接続しました');
+            });
+
+            // メッセージ受信
+            socket.on('message', (message) => {
+                const messageList = document.getElementById('messageList');
+                const messageElement = document.createElement('div');
+                messageElement.style.padding = '5px';
+                messageElement.style.margin = '5px 0';
+                messageElement.style.backgroundColor = '#e9ecef';
+                messageElement.style.borderRadius = '3px';
+                messageElement.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+                messageList.appendChild(messageElement);
+            });
+        }
+
+        // 初期接続
+        connectSocket();
+
+        // テストメッセージ送信
+        document.getElementById('testButton').addEventListener('click', () => {
+            if (socket && socket.connected) {
+                socket.emit('clientMessage', { message: `ページ2からのテストメッセージ (訪問回数: ${visitCount})` });
+            }
+        });
+
+        // 手動切断
+        document.getElementById('disconnectButton').addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+            }
+        });
+
+        // 再接続
+        document.getElementById('reconnectButton').addEventListener('click', () => {
+            if (socket) {
+                socket.connect();
+            }
+        });
+
+        // ページ離脱時の処理
+        window.addEventListener('beforeunload', () => {
+            console.log('ページを離脱します');
+        });
+    </script>
+</body>
+</html> 
