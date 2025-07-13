@@ -7,9 +7,25 @@
 
 <body>
     <h1>Socket.IO クライアント</h1>
+    <ul id="messages"></ul>
+    <input id="input" autocomplete="off" />
+    <button onclick="send()">送信</button>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
          const socket = io();  // ← ここで WebSocket の接続が発生！
+
+        function send() {
+            const input = document.getElementById('input');
+            socket.emit('chat', input.value);
+            input.value = '';
+        }
+
+        socket.on('chat', (msg) => {
+            const li = document.createElement('li');
+            li.textContent = msg;
+            document.getElementById('messages').appendChild(li);//受け取った値を追加する
+        });
     </script>
 </body>
 
